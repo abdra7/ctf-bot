@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChallengeStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum ParticipantStatus {
+  JOINED
+  FINISHED
+  DID_NOT_FINISH
+}
+
+model User {
+  id                String    @id // Discord user ID
+  username          String
+  challengesPlayed  Int       @default(0)
+  challengesWon     Int       @default(0)
+  challengesSecond  Int       @default(0)
+  challengesThird   Int       @default(0)
+  challengesCompleted Int     @default(0)
+  totalPoints       Int       @default(0)
+  bestCompletionMs  Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  hostedChallenges  Challenge[]            @relation("HostedChallenges")
+  participations    ChallengeParticipant[]
+}
+
+model Challenge {
+  id               String          @id @default(cuid())
+  challengeCode    String          @unique // e.g. CTF-001
+  name             String
+  description      String?
+  url              String
+  platform         String          @default("Other")
+  correctFlagHash  String
+  timeLimitMinutes Int
+  prize            String
+  maxParticipants  Int?
+  hostId           String
+  status           ChallengeStatus @default(WAITING)
+
+  guildId          String
+  channelId        String
+  messageId        String?
+
+  startTime        DateTime?
+  deadline         DateTime?
+  endedAt          DateTime?
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  host             User                    @relation("HostedChallenges", fields: [hostId], references: [id])
+  participants     ChallengeParticipant[]
+}
+
+model ChallengeParticipant {
+  id               String             @id @default(cuid())
+  challengeId      String
+  userId           String
+  joinedAt         DateTime           @default(now())
+  finishedAt       DateTime?
+  completionTimeMs Int?
+  rank             Int?
+  pointsAwarded    Int                @default(0)
+  status           ParticipantStatus  @default(JOINED)
+  flagAttempts     Int                @default(0)
+
+  challenge        Challenge @relation(fields: [challengeId], references: [id])
+  user             User      @relation(fields: [userId], references: [id])
+
+  @@unique([challengeId, userId])
+}
